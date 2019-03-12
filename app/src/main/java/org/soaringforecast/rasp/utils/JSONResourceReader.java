@@ -73,4 +73,8 @@ public class JSONResourceReader {
         Gson gson = new GsonBuilder().create();
         return gson.fromJson(jsonString, type);
     }
+
+    public String getJsonString(){
+        return jsonString;
+    }
 }

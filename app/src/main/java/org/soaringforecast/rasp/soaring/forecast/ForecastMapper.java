@@ -32,7 +32,10 @@ import com.google.maps.android.data.Feature;
 import com.google.maps.android.data.geojson.GeoJsonLayer;
 
 import org.greenrobot.eventbus.EventBus;
+import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.soaringforecast.rasp.R;
 import org.soaringforecast.rasp.messages.DisplaySounding;
 import org.soaringforecast.rasp.messages.SnackbarMessage;
@@ -40,6 +43,7 @@ import org.soaringforecast.rasp.repository.TaskTurnpoint;
 import org.soaringforecast.rasp.repository.Turnpoint;
 import org.soaringforecast.rasp.soaring.json.Sounding;
 import org.soaringforecast.rasp.utils.BitmapImageUtils;
+import org.soaringforecast.rasp.utils.JSONResourceReader;
 import org.soaringforecast.rasp.utils.ViewUtilities;
 
 import java.io.IOException;
@@ -406,18 +410,38 @@ public class ForecastMapper implements OnMapReadyCallback, GoogleMap.OnMarkerCli
     // TODO iterate through features and assign color to each based on type of SUA
     private void addGeoJsonLayerToMap(@IntegerRes int geoJsonid, String suaRegionName) {
         try {
+            getSUA(geoJsonid);
             geoJsonLayer = new GeoJsonLayer(googleMap, geoJsonid, context);
             // TODO reimplement after Google fixes bugs
             // Bug when clicking on map, may not get correct feature, also still getting click event
             // after layer removed from map
             //geoJsonLayer.setOnFeatureClickListener(geoJsonOnFeatureClickListener);
+            geoJsonLayer.addLayerToMap();
         } catch (IOException e) {
             postError(e, suaRegionName);
         } catch (JSONException e) {
             postError(e, suaRegionName);
         }
 
-        geoJsonLayer.addLayerToMap();
+
+    }
+
+    //TODO move GeoJson Feature creation logic to viewmodel. Create in background(RXJava) then pass to mapper
+    private JSONObject getSUA(@IntegerRes int geoJsonid) {
+        JSONObject jsonObject = null;
+        JSONTokener tokener = new JSONTokener(new JSONResourceReader(context.getResources(), geoJsonid).getJsonString());
+        try {
+            jsonObject = new JSONObject(tokener);
+            JSONArray jsonArray = jsonObject.getJSONArray("features");
+            for (int i = 0; i < jsonArray.length(); ++i) {
+               // GeoJsonPolygon geoJsonPolygon = new GeoJsonPolygon()
+                Timber.d(jsonArray.get(i).toString());
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return jsonObject;
+
     }
 
     private GeoJsonLayer.GeoJsonOnFeatureClickListener geoJsonOnFeatureClickListener = feature -> {
@@ -453,7 +477,7 @@ public class ForecastMapper implements OnMapReadyCallback, GoogleMap.OnMarkerCli
     }
 
     // Simply going geoJsonLayer.removeLayerFromMap still leaves GeoJsonOnFeatureClickListener active (some bug)
-    // so remove the features one by 1
+    // so remove the features one by 1 ?
     public void removeSuaFromMap() {
         if (geoJsonLayer != null) {
             // click listener continues to function even when layer removed from map, so set flag (for now) to
@@ -471,7 +495,7 @@ public class ForecastMapper implements OnMapReadyCallback, GoogleMap.OnMarkerCli
 
     }
 
-    private void  mapTurnpoints() {
+    private void mapTurnpoints() {
         Bitmap turnpointBitmap;
         if (googleMap == null) {
             return;
